@@ -6,6 +6,7 @@
 #include <codes.h> // also where #define sitecode is
 
 //static unsigned long int cards[]={0,0,0,0};
+//#define sitecode 0
 char bits[80];
 int bitcnt=0;
 unsigned long long bitw=0;
