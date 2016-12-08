@@ -3,7 +3,7 @@
 #define DoorP P1_6
 #define DoorE P1_0
 
-#include <codes.h>
+#include <codes.h> // also where #define sitecode is
 
 //static unsigned long int cards[]={0,0,0,0};
 char bits[80];
@@ -82,7 +82,7 @@ void loop()
     
     
     if (valid){ // Parity ok?
-      if (site==17) // Site ok?
+      if (site==sitecode) // Site ok?
         for (int i=0; i<sizeof(cards); i++)
           if (cards[i] == card){ // Is it in the DB?
             Serial.println("Match!");
