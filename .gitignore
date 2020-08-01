@@ -1,0 +1,6 @@
+/.settings/
+/core/
+.cproject
+.project
+/libraries/
+/spec.d
