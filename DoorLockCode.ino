@@ -5,7 +5,7 @@
 #define DoorP 25
 #define DoorE 26
 #include <Arduino.h>
-//#include <codes.h> // also where #define sitecode is
+#include "codes.h" // also where #define sitecode is
 //static unsigned long int cards[] = { 0, 0, 0, 0 };
 #define sitecode 17
 
@@ -15,24 +15,29 @@ unsigned long long bitw = 0;
 unsigned int timeout = 1000;
 boolean valid = true;
 int parity(unsigned long int x);
-
+//portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 // Wiegand 0 bit ISR. Triggered by wiegand 0 wire.
-void W0ISR() {
+void  IRAM_ATTR W0ISR() {
 	if(digitalRead(W0))
 			return;
+	//portEXIT_CRITICAL(&mux);
 	bitw = (bitw << 1) | 0x0; // shift in a 0 bit.
 	bitcnt++;               // Increment bit count
-	timeout = 2000;         // Reset timeout
+	timeout = millis();         // Reset timeout
+	//portEXIT_CRITICAL(&mux);
 
 }
 
 // Wiegand 1 bit ISR. Triggered by wiegand 1 wire.
-void W1ISR() {
+void  IRAM_ATTR W1ISR() {
 	if(digitalRead(W1))
 		return;
+	//portEXIT_CRITICAL(&mux);
 	bitw = (bitw << 1) | 0x1; // shift in a 1 bit
 	bitcnt++;               // Increment bit count
-	timeout = 2000;         // Reset Timeout
+	timeout = millis();         // Reset Timeout
+	//portEXIT_CRITICAL(&mux);
+
 }
 
 void setup() {
@@ -56,39 +61,43 @@ void setup() {
 	//    only in binary and with 2 wires.
 
 	// make sure W0 ans W1 trigger interrupts on a 1->0 transition.
-	attachInterrupt((W0), W0ISR, FALLING);
-	attachInterrupt((W1), W1ISR, FALLING);
+	attachInterrupt(digitalPinToInterrupt(W0), W0ISR, FALLING);
+	attachInterrupt(digitalPinToInterrupt(W1), W1ISR, FALLING);
 	Serial.println("Hello World!");
 
 	for (int i = 0; i < sizeof(bits); i++)
 		bits[i] = 0;
 }
 
-void loop() {
+void  IRAM_ATTR loop() {
 	digitalWrite(DoorP, LOW);
 	digitalWrite(DoorE, LOW);
-	if (timeout > 0)
-		timeout--; // Keep decrementing timeout. ISRs will set it when a bit is recieved.
-	if (timeout == 0 && bitcnt != 0) { // The reader hasn't sent a bit in 2000 units of time. Process card.
+	//portEXIT_CRITICAL(&mux);
+			unsigned long long bitwtmp=bitw;
+			int bitcnttmp=bitcnt;
+			//portEXIT_CRITICAL(&mux);
+	if (((millis()-timeout) > 500) && bitcnttmp >30) { // The reader hasn't sent a bit in 2000 units of time. Process card.
 	//Serial.print((long unsigned int)(bitw>>32),BIN);
 	//Serial.print((long unsigned int)bitw,BIN);
 	//  bitw = 0x122D9F628;
-		for (int i = bitcnt; i != 0; i--)
-			Serial.print((unsigned int) (bitw >> (i - 1) & 0x00000001)); // Print the card number in binary
+		//portEXIT_CRITICAL(&mux);
+		bitcnt = 0;
+		bitw = 0;
+		//portEXIT_CRITICAL(&mux);
+		for (int i = bitcnttmp; i != 0; i--)
+			Serial.print((unsigned int) (bitwtmp >> (i - 1) & 0x00000001)); // Print the card number in binary
 		Serial.print(" (");
-		Serial.print(bitcnt);
+		Serial.print(bitcnttmp);
 		Serial.println(")");
-
 		boolean ep, op;
 		unsigned int site;
 		unsigned long int card;
 
 		// Pick apart card.
-
-		site = (bitw >> 25) & 0x7f;
-		card = (bitw >> 1) & 0xffffff;
-		op = (bitw >> 0) & 0x1;
-		ep = (bitw >> 32) & 0x1;
+		site = (bitwtmp >> 25) & 0x00007f;
+		card = (bitwtmp >> 1) & 0xffffff;
+		op = (bitwtmp >> 0) & 0x000001;
+		ep = (bitwtmp >> 32) & 0x000001;
 
 		// Check parity
 		if (parity(site) != ep)
@@ -97,6 +106,7 @@ void loop() {
 			valid = false;
 
 		// Print card info
+		Serial.print("Got "+String());
 		Serial.print("Site: ");
 		Serial.println(site);
 		Serial.print("Card: ");
@@ -110,26 +120,24 @@ void loop() {
 		Serial.print("Parity Check: ");
 		Serial.println(valid ? "Valid" : "Error");
 
-		if (valid) { // Parity ok?
-			//  if (site==sitecode) // Site ok?
-			for (int i = 0; i < sizeof(cards); i++)
-				if (cards[i] == card) { // Is it in the DB?
-					Serial.println("Match!");
-					digitalWrite(DoorP, HIGH); // Open door.
-					delay(3000);
-					goto done;
-				}
-
-			Serial.println("Error! " + String(card));
-			digitalWrite(DoorE, HIGH);
-			delay(3000);
-		}
-
-		done:
-		// cleanup and prep for next card.
-		bitcnt = 0;
-		bitw = 0;
 		valid = true;
+
+		for (int i = 0; i < sizeof(cards)/sizeof(unsigned long int); i++){
+			Serial.println("Checking "+String(cards[i]));
+			if (cards[i] == card) { // Is it in the DB?
+				Serial.println("\t\tMatch! " +String(card)+" to card form list "+String(cards[i]));
+				digitalWrite(DoorP, HIGH); // Open door.
+				delay(3000);
+				return;
+			}
+		}
+		Serial.println("Error! " + String(card));
+		//digitalWrite(DoorE, HIGH);
+		delay(3000);
+
+
+	}else{
+		delay(30);
 	}
 
 }
