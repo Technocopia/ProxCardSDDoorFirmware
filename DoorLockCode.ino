@@ -6,8 +6,7 @@
 #define DoorE 26
 #include <Arduino.h>
 //#include <codes.h> // also where #define sitecode is
-
-static unsigned long int cards[] = { 0, 0, 0, 0 };
+//static unsigned long int cards[] = { 0, 0, 0, 0 };
 #define sitecode 17
 
 char bits[80];
@@ -19,6 +18,8 @@ int parity(unsigned long int x);
 
 // Wiegand 0 bit ISR. Triggered by wiegand 0 wire.
 void W0ISR() {
+	if(digitalRead(W0))
+			return;
 	bitw = (bitw << 1) | 0x0; // shift in a 0 bit.
 	bitcnt++;               // Increment bit count
 	timeout = 2000;         // Reset timeout
@@ -27,6 +28,8 @@ void W0ISR() {
 
 // Wiegand 1 bit ISR. Triggered by wiegand 1 wire.
 void W1ISR() {
+	if(digitalRead(W1))
+		return;
 	bitw = (bitw << 1) | 0x1; // shift in a 1 bit
 	bitcnt++;               // Increment bit count
 	timeout = 2000;         // Reset Timeout
