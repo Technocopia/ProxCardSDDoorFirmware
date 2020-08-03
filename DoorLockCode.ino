@@ -60,7 +60,7 @@ void IRAM_ATTR W1ISR() {
 // Prints the content of a file to the Serial
 void printFile(const char *filename) {
 	// Open file for reading
-	File file = (File) SD.open(filename);
+	File file = (File) SD.open(filename, FILE_READ);
 	if (!file) {
 		Serial.println(F("Failed to read file"));
 		return;
@@ -80,48 +80,65 @@ void setup() {
 	// put your setup code here, to run once:
 	Serial.begin(115200);
 	// create an empty array
-
+	pinMode(SS, INPUT_PULLUP);
+	pinMode(SCK, INPUT_PULLUP);
+	pinMode(MOSI, INPUT_PULLUP);
+	pinMode(MISO, INPUT_PULLUP);
 	// Initialize SD library
-	while (!SD.begin()) {
+	while (!SD.begin(SS, SPI, 4000000, "/sd", 5)) {
 		Serial.println(F("Failed to initialize SD library"));
 		delay(1000);
 	}
-	File fileTest = (File) SD.open(filename, FILE_WRITE);
-	if (!fileTest) {
+	if (!SD.exists(filename)) {
+		File fileTest = (File) SD.open(filename, FILE_WRITE);
 		Serial.println(F("Database missing"));
+		fileTest.close();
+		ESP.restart();
 	}
-	fileTest.close();
 
 	DeserializationError err;
 	do {
 		File f_l = (File) SD.open(filename, FILE_READ);
+		if (f_l) {
+			Serial.println(
+					"File " + String(filename) + " timeout: "
+							+ String(f_l.getTimeout()));
 //		// parse a JSON array
-		err = deserializeJson(doc_read, f_l);
-		f_l.close();
-		Serial.println("deserialize result " + String(err.c_str()));
+			err = deserializeJson(doc_read, f_l);
+			f_l.close();
+			Serial.println("deserialize result " + String(err.c_str()));
 
-		if (err != DeserializationError::Ok) {
-			File 	filew = SD.open(filename, FILE_WRITE);
-			Serial.println("Load default values..." + String(NUM_STATIC_CARDS));
-			// Populate database with default values
-			for (int i = 0; i < NUM_STATIC_CARDS; i++) {
-				array_write.add(cards[i]);
-			}
-			// serialize the array and send the result to Serial
-			serializeJson(doc_write, filew);
-			filew.flush();
-			filew.close();
-			//ESP.restart();
-		} else {
-			Serial.println("Number of cards " + String(array_read.size()));
+			if (err != DeserializationError::Ok) {
+				// Dump config file
+
+				File filew = SD.open(filename, FILE_WRITE);
+				Serial.println(
+						"Load default values..." + String(NUM_STATIC_CARDS));
+				// Populate database with default values
+				for (int i = 0; i < NUM_STATIC_CARDS; i++) {
+					array_write.add(cards[i]);
+				}
+				// serialize the array and send the result to Serial
+				serializeJson(doc_write, filew);
+				filew.flush();
+				filew.close();
+				delay(1000);
+				//ESP.restart();
+			} else {
+				Serial.println(F("on boot Print config file..."));
+				printFile(filename);
+				Serial.println("Number of cards " + String(array_read.size()));
 //			for (JsonVariant v : array_read) {
 //				Serial.println("Val = " + String(v.as<int>()));
 //			}
+			}
+		} else {
+			Serial.println("File open failed!");
 		}
 	} while (err != DeserializationError::Ok);
 	// Dump config file
-	Serial.println(F("Print config file..."));
-	printFile(filename);
+//	Serial.println(F("Print config file..."));
+//	printFile(filename);
 
 	pinMode(W0, INPUT_PULLUP);
 	pinMode(W1, INPUT_PULLUP);
@@ -219,8 +236,6 @@ long int getIDOfCurrentCard() {
 	Serial.print("op: ");
 	Serial.print(parity(card));
 	Serial.println(op);
-	Serial.print("Parity Check: ");
-	Serial.println(valid ? "Valid" : "Error");
 
 	valid = true;
 	return card;
@@ -234,7 +249,7 @@ void IRAM_ATTR loop() {
 		}
 		return;
 	}
-	if (!digitalRead(0) && loadCardMode==false) {
+	if (!digitalRead(0) && loadCardMode == false) {
 		// load card mode
 		loadCardMode = true;
 		startLoadCardMode = millis();
@@ -245,7 +260,7 @@ void IRAM_ATTR loop() {
 		Serial.println("End load Card Mode, writing");
 		// serialize the array and send the result to Serial
 		File file = (File) SD.open(filename, FILE_WRITE);
-		serializeJson(doc_write, file);
+		serializeJson(doc_read, file);
 		file.flush();
 		file.close();
 		printFile(filename);
@@ -263,8 +278,7 @@ void IRAM_ATTR loop() {
 			}
 		}
 		if (loadCardMode) {
-			Serial.println("Adding card! "+String(card));
-			array_write.add(card);
+			Serial.println("Adding card! " + String(card));
 			array_read.add(card);
 			startLoadCardMode = millis();
 		} else {
