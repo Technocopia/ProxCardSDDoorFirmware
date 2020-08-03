@@ -93,7 +93,7 @@ void setup() {
 		File fileTest = (File) SD.open(filename, FILE_WRITE);
 		Serial.println(F("Database missing"));
 		fileTest.close();
-		ESP.restart();
+		//ESP.restart();
 	}
 
 	DeserializationError err;
@@ -254,8 +254,16 @@ void IRAM_ATTR loop() {
 		loadCardMode = true;
 		startLoadCardMode = millis();
 		Serial.println("Start load card mode");
+		digitalWrite(DoorE, LOW);
+		delay(200);
+		digitalWrite(DoorE, HIGH);
+		delay(100);
+		digitalWrite(DoorE, LOW);
+		delay(200);
+		digitalWrite(DoorE, HIGH);
+		delay(100);
 	}
-	if (loadCardMode && (millis() - startLoadCardMode) > 5000) {
+	if (loadCardMode && (millis() - startLoadCardMode) > 20000) {
 		loadCardMode = false;
 		Serial.println("End load Card Mode, writing");
 		// serialize the array and send the result to Serial
@@ -264,6 +272,14 @@ void IRAM_ATTR loop() {
 		file.flush();
 		file.close();
 		printFile(filename);
+		digitalWrite(DoorE, LOW);
+		delay(200);
+		digitalWrite(DoorE, HIGH);
+		delay(100);
+		digitalWrite(DoorE, LOW);
+		delay(200);
+		digitalWrite(DoorE, HIGH);
+		delay(100);
 	}
 	if (haveCard()) { // The reader hasn't sent a bit in 2000 units of time. Process card.
 		unsigned long int card = getIDOfCurrentCard();
@@ -273,7 +289,7 @@ void IRAM_ATTR loop() {
 				Serial.println(
 						"\t\tMatch! " + String(card) + " to card form list "
 								+ String(v.as<int>()));
-				open();
+				if (!loadCardMode) open();
 				return;
 			}
 		}
