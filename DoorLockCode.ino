@@ -6,12 +6,14 @@
 #define DoorE 26
 #define button 32
 #include <Arduino.h>
-#include "codes.h" // also where #define sitecode is
-#define NUM_STATIC_CARDS (sizeof(cards) / sizeof(unsigned long int))
+//#include "codes.h" // also where #define sitecode is
+//#define NUM_STATIC_CARDS (sizeof(cards) / sizeof(unsigned long int))
 #include <ArduinoJson.h>
 #include <SD.h>
 #include <SPI.h>
+#if defined ARDUINO_ARCH_ESP32
 #include <FS.h>
+#endif
 #define numCards 300
 // Configuration that we'll store on disk
 
@@ -34,7 +36,12 @@ JsonArray array_write = doc_write.to<JsonArray>();
 // Wiegand 0 bit ISR. Triggered by wiegand 0 wire.
 bool loadCardMode = false;
 long startLoadCardMode = 0;
+#if defined ARDUINO_ARCH_ESP32
 void IRAM_ATTR W0ISR() {
+#else
+	void W0ISR() {
+#endif
+
 	if (digitalRead(W0))
 		return;
 	//portEXIT_CRITICAL(&mux);
@@ -46,7 +53,11 @@ void IRAM_ATTR W0ISR() {
 }
 
 // Wiegand 1 bit ISR. Triggered by wiegand 1 wire.
+#if defined ARDUINO_ARCH_ESP32
 void IRAM_ATTR W1ISR() {
+#else
+	void W1ISR() {
+#endif
 	if (digitalRead(W1))
 		return;
 	//portEXIT_CRITICAL(&mux);
@@ -85,7 +96,11 @@ void setup() {
 	pinMode(MOSI, INPUT_PULLUP);
 	pinMode(MISO, INPUT_PULLUP);
 	// Initialize SD library
+#if defined ARDUINO_ARCH_ESP32
 	while (!SD.begin(SS, SPI, 4000000, "/sd", 5)) {
+#else
+		while (!SD.begin(SS)) {
+#endif
 		Serial.println(F("Failed to initialize SD library"));
 		delay(1000);
 	}
@@ -108,29 +123,10 @@ void setup() {
 			f_l.close();
 			Serial.println("deserialize result " + String(err.c_str()));
 
-			if (err != DeserializationError::Ok) {
-				// Dump config file
-
-				File filew = SD.open(filename, FILE_WRITE);
-				Serial.println(
-						"Load default values..." + String(NUM_STATIC_CARDS));
-				// Populate database with default values
-				for (int i = 0; i < NUM_STATIC_CARDS; i++) {
-					array_write.add(cards[i]);
-				}
-				// serialize the array and send the result to Serial
-				serializeJson(doc_write, filew);
-				filew.flush();
-				filew.close();
-				delay(1000);
-				//ESP.restart();
-			} else {
+			if (err == DeserializationError::Ok) {
 				Serial.println(F("on boot Print config file..."));
 				printFile(filename);
 				Serial.println("Number of cards " + String(array_read.size()));
-//			for (JsonVariant v : array_read) {
-//				Serial.println("Val = " + String(v.as<int>()));
-//			}
 			}
 		} else {
 			Serial.println("File open failed!");
@@ -240,8 +236,11 @@ long int getIDOfCurrentCard() {
 	valid = true;
 	return card;
 }
-
+#if defined ARDUINO_ARCH_ESP32
 void IRAM_ATTR loop() {
+#else
+	void loop() {
+#endif
 	if (!digitalRead(button) && !haveCard()) {
 		open();
 		if (haveCard()) {
