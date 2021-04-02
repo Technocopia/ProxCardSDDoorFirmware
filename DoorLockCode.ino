@@ -1,3 +1,5 @@
+
+#if defined ARDUINO_ARCH_ESP32
 //green
 #define W0 27
 //white
@@ -5,6 +7,17 @@
 #define DoorP 25
 #define DoorE 26
 #define button 32
+#define loadcard 0
+#else
+//green
+#define W0 2
+//white
+#define W1 3
+#define DoorP 4
+#define DoorE 7
+#define button 8
+#define loadcard 6
+#endif
 #include <Arduino.h>
 //#include "codes.h" // also where #define sitecode is
 //#define NUM_STATIC_CARDS (sizeof(cards) / sizeof(unsigned long int))
@@ -97,9 +110,9 @@ void setup() {
 	pinMode(MISO, INPUT_PULLUP);
 	// Initialize SD library
 #if defined ARDUINO_ARCH_ESP32
-	while (!SD.begin(SS, SPI, 4000000, "/sd")) {
+	for (int i=0;i<3&&!SD.begin(SS, SPI);i++)  {
 #else
-		while (!SD.begin(SS)) {
+		for (int i=0;i<2&&!SD.begin(SS );i++)  {
 #endif
 		Serial.println(F("Failed to initialize SD library"));
 		delay(1000);
@@ -109,29 +122,30 @@ void setup() {
 		Serial.println(F("Database missing"));
 		fileTest.close();
 		//ESP.restart();
-	}
+	}else{
 
-	DeserializationError err;
-	do {
-		File f_l = (File) SD.open(filename, FILE_READ);
-		if (f_l) {
-			Serial.println(
-					"File " + String(filename) + " timeout: "
-							);
-//		// parse a JSON array
-			err = deserializeJson(doc_read, f_l);
-			f_l.close();
-			Serial.println("deserialize result " + String(err.c_str()));
+		DeserializationError err;
+		do {
+			File f_l = (File) SD.open(filename, FILE_READ);
+			if (f_l) {
+				Serial.println(
+						"File " + String(filename) + " timeout: "
+								);
+	//		// parse a JSON array
+				err = deserializeJson(doc_read, f_l);
+				f_l.close();
+				Serial.println("deserialize result " + String(err.c_str()));
 
-			if (err == DeserializationError::Ok) {
-				Serial.println(F("on boot Print config file..."));
-				printFile(filename);
-				Serial.println("Number of cards " + String(array_read.size()));
+				if (err == DeserializationError::Ok) {
+					Serial.println(F("on boot Print config file..."));
+					printFile(filename);
+					Serial.println("Number of cards " + String(array_read.size()));
+				}
+			} else {
+				Serial.println("File open failed!");
 			}
-		} else {
-			Serial.println("File open failed!");
-		}
-	} while (err != DeserializationError::Ok);
+		} while (err != DeserializationError::Ok);
+	}
 	// Dump config file
 //	Serial.println(F("Print config file..."));
 //	printFile(filename);
@@ -139,7 +153,7 @@ void setup() {
 	pinMode(W0, INPUT_PULLUP);
 	pinMode(W1, INPUT_PULLUP);
 	pinMode(button, INPUT_PULLUP);
-	pinMode(0, INPUT_PULLUP);
+	pinMode(loadcard, INPUT_PULLUP);
 	pinMode(DoorP, OUTPUT);
 	pinMode(DoorE, OUTPUT);
 	digitalWrite(DoorP, LOW);
@@ -157,7 +171,6 @@ void setup() {
 	// make sure W0 ans W1 trigger interrupts on a 1->0 transition.
 	attachInterrupt(digitalPinToInterrupt(W0), W0ISR, FALLING);
 	attachInterrupt(digitalPinToInterrupt(W1), W1ISR, FALLING);
-	Serial.println("Hello World!");
 
 	for (int i = 0; i < sizeof(bits); i++)
 		bits[i] = 0;
@@ -168,24 +181,8 @@ void setup() {
 void open() {
 	Serial.println("Opening door");
 	digitalWrite(DoorP, HIGH); // Open door.
-	delay(100);
-	digitalWrite(DoorE, LOW);
-	delay(200);
-	digitalWrite(DoorE, HIGH);
-	delay(100);
-	digitalWrite(DoorE, LOW);
-	delay(200);
-	digitalWrite(DoorE, HIGH);
-	delay(100);
-	digitalWrite(DoorE, LOW);
-	delay(200);
-	digitalWrite(DoorE, HIGH);
-	delay(5000);
-	digitalWrite(DoorE, LOW);
-	delay(200);
-	digitalWrite(DoorE, HIGH);
+	delay(800);
 	digitalWrite(DoorP, LOW); // close
-
 	Serial.println("Locking door");
 }
 
@@ -241,14 +238,11 @@ void IRAM_ATTR loop() {
 #else
 	void loop() {
 #endif
-	if (!digitalRead(button) && !haveCard()) {
+	if (!digitalRead(button) ) {
 		open();
-		if (haveCard()) {
-
-		}
 		return;
 	}
-	if (!digitalRead(0) && loadCardMode == false) {
+	if (!digitalRead(loadcard) && loadCardMode == false) {
 		// load card mode
 		loadCardMode = true;
 		startLoadCardMode = millis();
