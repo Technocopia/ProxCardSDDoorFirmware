@@ -97,7 +97,7 @@ void setup() {
 	pinMode(MISO, INPUT_PULLUP);
 	// Initialize SD library
 #if defined ARDUINO_ARCH_ESP32
-	while (!SD.begin(SS, SPI, 4000000, "/sd", 5)) {
+	while (!SD.begin(SS, SPI, 4000000, "/sd")) {
 #else
 		while (!SD.begin(SS)) {
 #endif
@@ -117,7 +117,7 @@ void setup() {
 		if (f_l) {
 			Serial.println(
 					"File " + String(filename) + " timeout: "
-							+ String(f_l.getTimeout()));
+							);
 //		// parse a JSON array
 			err = deserializeJson(doc_read, f_l);
 			f_l.close();
