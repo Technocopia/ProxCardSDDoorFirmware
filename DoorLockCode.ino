@@ -13,8 +13,8 @@
 #define W0 2
 //white
 #define W1 3
-#define DoorP 4
-#define DoorE 7
+#define DoorP 7
+#define DoorE 4
 #define button 8
 #define loadcard 6
 #endif
@@ -27,7 +27,7 @@
 #if defined ARDUINO_ARCH_ESP32
 #include <FS.h>
 #endif
-#define numCards 300
+#include "TinyUSB_Mouse_and_Keyboard.h"
 // Configuration that we'll store on disk
 
 #define sitecode 17
@@ -181,7 +181,7 @@ void setup() {
 void open() {
 	Serial.println("Opening door");
 	digitalWrite(DoorP, HIGH); // Open door.
-	delay(800);
+	delay(1100);
 	digitalWrite(DoorP, LOW); // close
 	Serial.println("Locking door");
 }
@@ -256,7 +256,7 @@ void IRAM_ATTR loop() {
 		digitalWrite(DoorE, HIGH);
 		delay(100);
 	}
-	if (loadCardMode && (millis() - startLoadCardMode) > 20000) {
+	if (loadCardMode && (((millis() - startLoadCardMode) > 20000)||!digitalRead(loadcard))) {
 		loadCardMode = false;
 		Serial.println("End load Card Mode, writing");
 		// serialize the array and send the result to Serial
