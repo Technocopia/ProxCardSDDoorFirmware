@@ -27,7 +27,7 @@
 #if defined ARDUINO_ARCH_ESP32
 #include <FS.h>
 #endif
-#include "TinyUSB_Mouse_and_Keyboard.h"
+
 // Configuration that we'll store on disk
 
 #define sitecode 17
@@ -176,6 +176,7 @@ void setup() {
 		bits[i] = 0;
 	digitalWrite(DoorP, LOW);
 	digitalWrite(DoorE, HIGH);
+	//Keyboard.begin();
 }
 
 void open() {
@@ -275,7 +276,8 @@ void IRAM_ATTR loop() {
 		delay(100);
 	}
 	if (haveCard()) { // The reader hasn't sent a bit in 2000 units of time. Process card.
-		unsigned long int card = getIDOfCurrentCard();
+		int card = getIDOfCurrentCard();
+		//Keyboard.println(String(card));
 		for (JsonVariant v : array_read) {
 			//Serial.println("Checking "+String(cards[i]));
 			if (v.as<int>() == card) { // Is it in the DB?
