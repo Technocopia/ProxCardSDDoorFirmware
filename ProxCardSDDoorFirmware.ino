@@ -39,7 +39,7 @@ unsigned int timeout = 1000;
 boolean valid = true;
 int parity(unsigned long int x);
 const char *filename = "/db.json";  // <- SD library uses 8.3 filenames
-const size_t CAPACITY = JSON_ARRAY_SIZE(300);
+const size_t CAPACITY = JSON_ARRAY_SIZE(3000);
 // allocate the memory for the document
 StaticJsonDocument<CAPACITY> doc_read;
 StaticJsonDocument<CAPACITY> doc_write;
@@ -126,6 +126,7 @@ void setup() {
 
 		DeserializationError err;
 		do {
+      Serial.println("Attempting to load the card...");
 			File f_l = (File) SD.open(filename, FILE_READ);
 			if (f_l) {
 				Serial.println(
@@ -147,8 +148,8 @@ void setup() {
 		} while (err != DeserializationError::Ok);
 	}
 	// Dump config file
-//	Serial.println(F("Print config file..."));
-//	printFile(filename);
+  Serial.println(F("Print config file..."));
+  printFile(filename);
 
 	pinMode(W0, INPUT_PULLUP);
 	pinMode(W1, INPUT_PULLUP);
@@ -242,38 +243,6 @@ void IRAM_ATTR loop() {
 	if (!digitalRead(button) ) {
 		open();
 		return;
-	}
-	if (!digitalRead(loadcard) && loadCardMode == false) {
-		// load card mode
-		loadCardMode = true;
-		startLoadCardMode = millis();
-		Serial.println("Start load card mode");
-		digitalWrite(DoorE, LOW);
-		delay(200);
-		digitalWrite(DoorE, HIGH);
-		delay(100);
-		digitalWrite(DoorE, LOW);
-		delay(200);
-		digitalWrite(DoorE, HIGH);
-		delay(100);
-	}
-	if (loadCardMode && (((millis() - startLoadCardMode) > 20000)||!digitalRead(loadcard))) {
-		loadCardMode = false;
-		Serial.println("End load Card Mode, writing");
-		// serialize the array and send the result to Serial
-		File file = (File) SD.open(filename, FILE_WRITE);
-		serializeJson(doc_read, file);
-		file.flush();
-		file.close();
-		printFile(filename);
-		digitalWrite(DoorE, LOW);
-		delay(200);
-		digitalWrite(DoorE, HIGH);
-		delay(100);
-		digitalWrite(DoorE, LOW);
-		delay(200);
-		digitalWrite(DoorE, HIGH);
-		delay(100);
 	}
 	if (haveCard()) { // The reader hasn't sent a bit in 2000 units of time. Process card.
 		int card = getIDOfCurrentCard();
